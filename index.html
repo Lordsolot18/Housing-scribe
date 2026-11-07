@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en-CA">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Housing Scribe – intake assistant (prototype)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F6F7F4; --surface:#FFFFFF; --ink:#1F2A33; --muted:#5B6770;
+  --line:#D5DAD6; --spruce:#2F5D50; --spruce-soft:#E3EDE8;
+  --wheat:#C9A54A; --wheat-soft:#F6EDD3; --alert:#A83A43; --alert-soft:#F6E2E3;
+  --ui:"Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --doc:"Source Serif 4", Georgia, "Times New Roman", serif;
+  color-scheme: light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --paper:#151B1F; --surface:#1D252A; --ink:#E7ECE9; --muted:#9AA7AE;
+    --line:#33403F; --spruce:#7FB8A6; --spruce-soft:#21332E;
+    --wheat:#D9BC6C; --wheat-soft:#33301F; --alert:#E1868D; --alert-soft:#3A2427;
+    color-scheme: dark;
+  }
+}
+*,*::before,*::after{box-sizing:inherit}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--ui);font-size:17px;line-height:1.5}
+button,textarea,input{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--spruce);outline-offset:2px}
+.wrap{max-width:1120px;margin:0 auto;padding:20px 20px 64px}
+
+header.top{display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap;border-bottom:2px solid var(--ink);padding-bottom:12px;margin-bottom:20px}
+header.top h1{font-size:1.6rem;margin:0;letter-spacing:-.01em}
+header.top p{margin:0;color:var(--muted);font-size:.95rem}
+.notice{background:var(--wheat-soft);border-left:4px solid var(--wheat);padding:10px 14px;margin-bottom:24px;font-size:.95rem}
+
+.steps{display:flex;gap:6px;margin:0 0 24px;padding:0;list-style:none;flex-wrap:wrap}
+.steps li{padding:6px 12px;border:1px solid var(--line);border-radius:999px;font-size:.9rem;color:var(--muted)}
+.steps li.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.steps li.done{color:var(--spruce);border-color:var(--spruce)}
+
+section.stage{display:none}
+section.stage.on{display:block}
+h2{font-size:1.3rem;margin:0 0 12px}
+.lede{color:var(--muted);max-width:65ch;margin:0 0 20px}
+
+.script{font-family:var(--doc);font-size:1.15rem;line-height:1.65;background:var(--surface);border:1px solid var(--line);padding:22px 26px;max-width:68ch;margin-bottom:20px}
+.script p{margin:0 0 .8em}.script p:last-child{margin:0}
+.field{margin:0 0 18px}
+.field label{display:block;font-weight:700;margin-bottom:4px}
+.field input{padding:8px 10px;border:1px solid var(--line);background:var(--surface);border-radius:4px;width:10ch}
+
+.btn{border:2px solid var(--ink);background:var(--surface);padding:10px 18px;border-radius:6px;cursor:pointer;font-weight:700}
+.btn:hover{background:var(--spruce-soft)}
+.btn.primary{background:var(--spruce);border-color:var(--spruce);color:#fff}
+@media (prefers-color-scheme: dark){.btn.primary{color:#10201B}}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.stop{border-color:var(--alert);color:var(--alert)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+
+/* interview layout */
+.interview{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:24px;align-items:start}
+@media (max-width:860px){.interview{grid-template-columns:1fr}.rail{order:-1}}
+.statusbar{display:flex;align-items:center;gap:10px;margin-bottom:12px;min-height:28px;color:var(--muted)}
+.dot{width:12px;height:12px;border-radius:50%;background:var(--line)}
+.dot.live{background:var(--alert);animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.35}}
+@media (prefers-reduced-motion: reduce){.dot.live{animation:none}}
+.transcript{background:var(--surface);border:1px solid var(--line);min-height:320px;max-height:60vh;overflow:auto;padding:16px 18px;font-size:1rem;white-space:pre-wrap}
+.transcript .interim{color:var(--muted)}
+.transcript:empty::before{content:"The transcript will appear here as you talk.";color:var(--muted)}
+textarea.notes{width:100%;min-height:320px;padding:16px 18px;border:1px solid var(--line);background:var(--surface);resize:vertical;line-height:1.5}
+
+/* the checklist rail: the one bold element */
+.rail{background:var(--surface);border:1px solid var(--line);padding:16px;position:sticky;top:12px}
+.rail h3{margin:0 0 2px;font-size:1.05rem}
+.rail .count{color:var(--muted);font-size:.9rem;margin-bottom:12px}
+.meter{display:grid;grid-template-columns:repeat(12,1fr);gap:3px;margin-bottom:14px}
+.meter span{height:8px;background:var(--line);border-radius:2px}
+.meter span.partly{background:var(--wheat)}
+.meter span.covered{background:var(--spruce)}
+.checklist{list-style:none;margin:0;padding:0}
+.checklist li{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-top:1px solid var(--line)}
+.checklist button{all:unset;cursor:pointer;display:flex;gap:10px;align-items:flex-start;width:100%}
+.checklist button:focus-visible{outline:3px solid var(--spruce);outline-offset:2px}
+.mark{flex:0 0 18px;height:18px;margin-top:3px;border:2px solid var(--muted);border-radius:50%}
+li.partly .mark{border-color:var(--wheat);background:linear-gradient(90deg,var(--wheat) 50%,transparent 50%)}
+li.covered .mark{border-color:var(--spruce);background:var(--spruce)}
+li.covered .label{color:var(--muted)}
+.label{font-size:.95rem;line-height:1.35}
+.label small{display:block;color:var(--muted);font-size:.8rem}
+.rail .hint{font-size:.82rem;color:var(--muted);margin-top:10px}
+
+/* draft */
+.doc{background:var(--surface);border:1px solid var(--line);padding:28px clamp(18px,4vw,44px);max-width:820px}
+.doc h3{font-family:var(--doc);font-weight:600;font-size:1.15rem;margin:22px 0 6px}
+.doc h3:first-of-type{margin-top:0}
+.doc textarea{width:100%;font-family:var(--doc);font-size:1.05rem;line-height:1.65;border:1px solid transparent;background:transparent;padding:6px 8px;margin-left:-8px;resize:vertical;min-height:3.4em}
+.doc textarea:hover,.doc textarea:focus{border-color:var(--line);background:var(--paper)}
+.gap{display:inline-block;font-size:.8rem;background:var(--wheat-soft);color:var(--ink);border:1px solid var(--wheat);padding:1px 8px;border-radius:999px;margin-left:8px;font-family:var(--ui);vertical-align:middle}
+.followups{background:var(--alert-soft);border-left:4px solid var(--alert);padding:12px 16px;margin:0 0 22px}
+.followups h3{margin:0 0 6px;font-family:var(--ui);font-size:1rem}
+.followups ul{margin:0;padding-left:20px}
+.meta{font-size:.9rem;color:var(--muted);margin:18px 0 0}
+.approved{background:var(--spruce-soft);border-left:4px solid var(--spruce);padding:10px 14px;margin:18px 0}
+.err{background:var(--alert-soft);border-left:4px solid var(--alert);padding:10px 14px;margin:14px 0}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--line);border-top-color:var(--spruce);border-radius:50%;animation:spin 1s linear infinite;vertical-align:-3px;margin-right:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media print{
+  header.top,.notice,.steps,.no-print{display:none!important}
+  .doc{border:0;padding:0}
+  .doc textarea{border:0;overflow:visible}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>Housing Scribe</h1>
+    <p>Intake assistant for housing and homelessness assessments · prototype</p>
+  </header>
+
+  <div class="notice no-print">
+    Prototype for testing only. Use role-played or made-up interviews, never real client information. Live transcription uses your browser’s speech service, which may send audio to Google (Chrome) or Apple (Safari).
+  </div>
+
+  <ol class="steps no-print" id="steps">
+    <li data-s="consent">Consent</li>
+    <li data-s="interview">Interview</li>
+    <li data-s="draft">Review draft</li>
+  </ol>
+
+  <!-- STAGE 1: CONSENT -->
+  <section class="stage on" id="stage-consent">
+    <h2>Read this to the client before you start</h2>
+    <div class="script">
+      <p>Before we begin, I’d like to explain how I take notes today.</p>
+      <p>With your permission, this tool will listen to our conversation and turn it into written notes. It helps me focus on you instead of my keyboard.</p>
+      <p>Only I and the staff working on your housing will see the notes. I’ll check and correct them before anything is saved. The recording is deleted once I approve the notes.</p>
+      <p>You can say no, and it won’t change the help you get in any way. You can also ask me to pause or stop at any time.</p>
+      <p>Is it okay with you if I use it today?</p>
+    </div>
+    <div class="field">
+      <label for="initials">Your initials (for the consent log)</label>
+      <input id="initials" maxlength="5" autocomplete="off">
+    </div>
+    <div class="row">
+      <button class="btn primary" id="consentYes">Client agrees to recording</button>
+      <button class="btn" id="consentNo">Client declines, use typed notes</button>
+    </div>
+  </section>
+
+  <!-- STAGE 2: INTERVIEW -->
+  <section class="stage" id="stage-interview">
+    <div class="interview">
+      <div>
+        <h2 id="interviewTitle">Interview</h2>
+        <div id="recordArea">
+          <div class="statusbar"><span class="dot" id="dot"></span><span id="status">Ready to record</span></div>
+          <div class="transcript" id="transcript" aria-live="polite"></div>
+          <div class="row" style="margin-top:12px">
+            <button class="btn primary" id="startBtn">Start recording</button>
+            <button class="btn" id="pauseBtn" disabled>Pause</button>
+            <button class="btn" id="sampleBtn" title="Loads a made-up interview so you can test without speaking">Load sample interview</button>
+          </div>
+        </div>
+        <div id="notesArea" hidden>
+          <p class="lede">The client declined recording. Type short notes as you go. The checklist still updates, and the AI will tidy your notes into a draft.</p>
+          <textarea class="notes" id="notes" placeholder="e.g. Slept at friend’s place last night. Evicted Sept – landlord sold. On Alberta Works…"></textarea>
+        </div>
+        <div class="row" style="margin-top:20px">
+          <button class="btn stop" id="finishBtn">End interview and draft assessment</button>
+        </div>
+        <div id="draftErr"></div>
+      </div>
+
+      <aside class="rail" aria-label="Assessment checklist">
+        <h3>Assessment checklist</h3>
+        <div class="count" id="count">0 of 12 covered</div>
+        <div class="meter" id="meter" aria-hidden="true"></div>
+        <ul class="checklist" id="checklist"></ul>
+        <p class="hint">Ticks update from what’s said. Tap a section to mark it yourself.</p>
+      </aside>
+    </div>
+  </section>
+
+  <!-- STAGE 3: DRAFT -->
+  <section class="stage" id="stage-draft">
+    <h2>Review and approve the draft</h2>
+    <p class="lede no-print">Everything below is editable. Check every section against what the client actually said. Nothing is final until you approve it.</p>
+    <div class="doc" id="doc"></div>
+    <div class="row no-print" style="margin-top:20px" id="draftActions">
+      <button class="btn primary" id="approveBtn">Approve assessment</button>
+      <button class="btn" id="backBtn">Back to interview</button>
+    </div>
+    <div id="approvedBox"></div>
+  </section>
+</div>
+
+<script>
+/* ---------- Template: Canadian homelessness intake ---------- */
+const SECTIONS = [
+  {id:"basics", title:"Client basics", hint:"Name, date of birth, contact, language, interpreter",
+   kw:["my name","name is","date of birth","born","birthday","phone","email","contact","language","interpreter","speak english"]},
+  {id:"housing", title:"Current housing situation", hint:"Last night, length of homelessness, recent addresses",
+   kw:["last night","slept","sleeping","staying","shelter","couch","sofa","on the street","rough","homeless for","address","lived at","living at"]},
+  {id:"reason", title:"Reason for housing loss", hint:"Eviction, breakdown, fleeing, income loss",
+   kw:["evict","eviction","kicked out","notice","landlord","broke up","separat","lost my job","fled","had to leave","why did you","sold the"]},
+  {id:"household", title:"Household", hint:"Children, partner, pets",
+   kw:["children","kids","son","daughter","partner","wife","husband","girlfriend","boyfriend","pet","dog","cat","on my own","by myself","household"]},
+  {id:"income", title:"Income and benefits", hint:"Work, Alberta Works, AISH, debts, arrears",
+   kw:["income","money","employed","job","alberta works","income support","aish","cpp","\\bei\\b","employment insurance","debt","arrears","owe","paycheque","benefits"]},
+  {id:"health", title:"Health and wellbeing", hint:"Only what the client chooses to share",
+   kw:["health","doctor","medication","mental","anxiety","depress","alcohol","drinking","substance","drugs","hospital","disability","clinic"]},
+  {id:"safety", title:"Safety and risk", hint:"Violence, safety concerns, immediate risks",
+   kw:["safe","safety","violence","abuse","hurt","threat","afraid","scared","risk","police"]},
+  {id:"identity", title:"Identity and background", hint:"Indigenous, newcomer/refugee, veteran, youth/senior",
+   kw:["indigenous","first nations","métis","metis","inuit","newcomer","refugee","immigra","veteran","military","canadian forces","treaty"]},
+  {id:"documents", title:"Documents", hint:"ID, health card, SIN, immigration papers",
+   kw:["\\bid\\b","identification","health card","\\bsin\\b","social insurance","passport","pr card","permanent resident","documents","birth certificate","driver"]},
+  {id:"supports", title:"Supports and services", hint:"Workers, agencies, support network",
+   kw:["case worker","caseworker","case manager","agency","support","family","friends","church","program","counsel","outreach"]},
+  {id:"goals", title:"Client goals", hint:"Type of housing and where",
+   kw:["goal","looking for","prefer","neighbourhood","area","apartment","bedroom","ideally","hope to","would like","want to live"]},
+  {id:"summary", title:"Caseworker summary and next steps", hint:"Needs, agreed actions",
+   kw:["next step","plan","refer","follow up","follow-up","appointment","i will","we will","i'll","we'll"]}
+];
+
+/* ---------- State (in memory only; nothing is saved) ---------- */
+const state = {
+  mode:null, consent:null, finalText:"", interim:"",
+  manual:{}, recording:false, paused:false, draft:null, approval:null
+};
+
+/* ---------- Stage switching ---------- */
+function show(stage){
+  document.querySelectorAll(".stage").forEach(s=>s.classList.toggle("on", s.id==="stage-"+stage));
+  const order=["consent","interview","draft"];
+  document.querySelectorAll("#steps li").forEach(li=>{
+    const i=order.indexOf(li.dataset.s), cur=order.indexOf(stage);
+    li.classList.toggle("on", i===cur); li.classList.toggle("done", i<cur);
+  });
+  window.scrollTo({top:0});
+}
+
+/* ---------- Consent ---------- */
+function logConsent(choice){
+  const initials=document.getElementById("initials").value.trim().toUpperCase();
+  if(!initials){ alert("Add your initials so the consent can be logged."); return false; }
+  state.consent={choice, initials, time:new Date().toISOString()};
+  return true;
+}
+document.getElementById("consentYes").onclick=()=>{
+  if(!logConsent("Agreed to recording")) return;
+  state.mode="record"; setupInterview(); show("interview");
+};
+document.getElementById("consentNo").onclick=()=>{
+  if(!logConsent("Declined recording – typed notes used")) return;
+  state.mode="notes"; setupInterview(); show("interview");
+};
+
+/* ---------- Checklist ---------- */
+const listEl=document.getElementById("checklist"), meterEl=document.getElementById("meter");
+SECTIONS.forEach(s=>{
+  const li=document.createElement("li"); li.id="c-"+s.id;
+  li.innerHTML=`<button type="button" aria-pressed="false"><span class="mark"></span><span class="label">${s.title}<small>${s.hint}</small></span></button>`;
+  li.querySelector("button").onclick=()=>{
+    state.manual[s.id]=!state.manual[s.id]; updateChecklist();
+  };
+  listEl.appendChild(li);
+  meterEl.appendChild(document.createElement("span"));
+});
+function hits(text, kws){
+  const t=text.toLowerCase(); let n=0;
+  kws.forEach(k=>{ const re=new RegExp(k.includes("\\b")?k:k.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"),"g"); const m=t.match(re); if(m) n+=m.length; });
+  return n;
+}
+function currentText(){ return state.mode==="notes" ? document.getElementById("notes").value : state.finalText+" "+state.interim; }
+function updateChecklist(){
+  const text=currentText(); let covered=0;
+  SECTIONS.forEach((s,i)=>{
+    const n=hits(text,s.kw);
+    let st = state.manual[s.id] ? "covered" : n>=2 ? "covered" : n===1 ? "partly" : "";
+    if(st==="covered") covered++;
+    const li=document.getElementById("c-"+s.id);
+    li.className=st; li.querySelector("button").setAttribute("aria-pressed", st==="covered");
+    meterEl.children[i].className=st;
+  });
+  document.getElementById("count").textContent=`${covered} of 12 covered`;
+}
+document.getElementById("notes").addEventListener("input", updateChecklist);
+
+/* ---------- Speech recognition ---------- */
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+let rec=null;
+const transcriptEl=document.getElementById("transcript");
+function renderTranscript(){
+  transcriptEl.textContent=state.finalText;
+  if(state.interim){ const s=document.createElement("span"); s.className="interim"; s.textContent=state.interim; transcriptEl.appendChild(s); }
+  transcriptEl.scrollTop=transcriptEl.scrollHeight;
+  updateChecklist();
+}
+function setStatus(text, live){
+  document.getElementById("status").textContent=text;
+  document.getElementById("dot").classList.toggle("live", !!live);
+}
+function setupInterview(){
+  const isNotes=state.mode==="notes";
+  document.getElementById("recordArea").hidden=isNotes;
+  document.getElementById("notesArea").hidden=!isNotes;
+  document.getElementById("interviewTitle").textContent=isNotes?"Interview – typed notes":"Interview – recording";
+  if(!isNotes && !SR){
+    setStatus("Live transcription isn’t supported in this browser. Use Chrome, Edge or Safari, or load the sample interview.");
+    document.getElementById("startBtn").disabled=true;
+  }
+  updateChecklist();
+}
+function startRec(){
+  rec=new SR(); rec.lang="en-CA"; rec.continuous=true; rec.interimResults=true;
+  rec.onresult=e=>{
+    let interim="";
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const r=e.results[i];
+      if(r.isFinal) state.finalText+=r[0].transcript.trim()+"\n"; else interim+=r[0].transcript;
+    }
+    state.interim=interim; renderTranscript();
+  };
+  rec.onerror=e=>{
+    if(e.error==="not-allowed"){ setStatus("Microphone access was blocked. Allow it in your browser settings and try again."); state.recording=false; syncButtons(); }
+  };
+  rec.onend=()=>{ if(state.recording && !state.paused) { try{rec.start();}catch(_){} } };
+  rec.start();
+}
+function syncButtons(){
+  const start=document.getElementById("startBtn"), pause=document.getElementById("pauseBtn");
+  start.textContent=state.recording?"Stop recording":"Start recording";
+  start.classList.toggle("primary", !state.recording);
+  pause.disabled=!state.recording;
+  pause.textContent=state.paused?"Resume":"Pause";
+}
+document.getElementById("startBtn").onclick=()=>{
+  if(!state.recording){ state.recording=true; state.paused=false; startRec(); setStatus("Recording", true); }
+  else { state.recording=false; state.paused=false; rec&&rec.stop(); state.interim=""; renderTranscript(); setStatus("Recording stopped"); }
+  syncButtons();
+};
+document.getElementById("pauseBtn").onclick=()=>{
+  state.paused=!state.paused;
+  if(state.paused){ rec&&rec.stop(); setStatus("Paused – nothing is being transcribed"); }
+  else { startRec(); setStatus("Recording", true); }
+  syncButtons();
+};
+
+/* ---------- Sample interview (fictional) ---------- */
+const SAMPLE=`Worker: Thanks for coming in. Can you tell me your name and date of birth?
+Client: Daniel Okafor, born March 4th, 1988.
+Worker: What's the best phone number to reach you?
+Client: 780 555 0142. That's my sister's phone, she passes messages on.
+Worker: Where did you sleep last night?
+Client: At the shelter downtown. Before that I was on a friend's couch for about three weeks.
+Worker: How long have you been without your own place?
+Client: Since the end of August, so a bit over two months.
+Worker: What happened with your last place?
+Client: The landlord sold the building and gave everyone notice. I couldn't find anything I could afford in time.
+Worker: Is anyone with you? Partner, children, pets?
+Client: No, just me. My daughter lives with her mom in Calgary.
+Worker: What income do you have right now?
+Client: I lost my job at the warehouse in July. I applied for Alberta Works, still waiting. I owe about two months on my phone bill.
+Worker: Do you have your ID?
+Client: I have my health card and SIN card. My driver's licence got lost in the move.
+Worker: Is there anything about your health you'd like us to know?
+Client: I have some anxiety. I used to see a doctor at a clinic but I stopped going.
+Worker: Do you feel safe where you're staying?
+Client: Mostly, yeah. Nobody's threatening me or anything.
+Worker: Do you identify as Indigenous, or are you a newcomer to Canada?
+Client: I came to Canada as a refugee in 2015. I'm a permanent resident now.
+Worker: Is anyone else supporting you, any agency or caseworker?
+Client: My sister helps when she can. No caseworker.
+Worker: What kind of place are you looking for?
+Client: Ideally a one bedroom apartment, somewhere on the south side near the LRT so I can get to work.
+Worker: Okay. Next steps: I'll refer you to Housing First and help you follow up on Alberta Works. We'll book an appointment to replace your driver's licence.`;
+document.getElementById("sampleBtn").onclick=()=>{ state.finalText=SAMPLE+"\n"; state.interim=""; renderTranscript(); setStatus("Sample interview loaded"); };
+
+/* ---------- Draft generation ---------- */
+document.getElementById("finishBtn").onclick=async()=>{
+  if(state.recording){ state.recording=false; rec&&rec.stop(); syncButtons(); setStatus("Recording stopped"); }
+  const text=(state.mode==="notes"?document.getElementById("notes").value:state.finalText).trim();
+  const errBox=document.getElementById("draftErr");
+  if(text.length<40){ errBox.innerHTML=`<div class="err">There isn’t enough in the ${state.mode==="notes"?"notes":"transcript"} to draft an assessment yet.</div>`; return; }
+  const btn=document.getElementById("finishBtn");
+  btn.disabled=true; btn.innerHTML=`<span class="spinner"></span>Drafting the assessment…`; errBox.innerHTML="";
+  try{
+    const res=await fetch("/.netlify/functions/draft",{
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({mode:state.mode, text, sections:SECTIONS.map(s=>({id:s.id,title:s.title,hint:s.hint}))})
+    });
+    const data=await res.json();
+    if(!res.ok) throw new Error(data.error||"The draft service returned an error.");
+    state.draft=data; renderDraft(); show("draft");
+  }catch(err){
+    errBox.innerHTML=`<div class="err">Couldn’t create the draft: ${escapeHtml(err.message)}. Check the API key is set in Netlify and try again.</div>`;
+  }finally{
+    btn.disabled=false; btn.textContent="End interview and draft assessment";
+  }
+};
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function renderDraft(){
+  const d=state.draft, doc=document.getElementById("doc");
+  let html="";
+  if(d.followups && d.followups.length){
+    html+=`<div class="followups"><h3>Gaps to follow up</h3><ul>${d.followups.map(f=>`<li>${escapeHtml(f)}</li>`).join("")}</ul></div>`;
+  }
+  SECTIONS.forEach(s=>{
+    const sec=(d.sections||[]).find(x=>x.id===s.id)||{content:"Not discussed.",missing:true};
+    html+=`<h3>${s.title}${sec.missing?'<span class="gap">Not covered</span>':""}</h3>
+      <textarea data-id="${s.id}" rows="3" aria-label="${s.title}">${escapeHtml(sec.content)}</textarea>`;
+  });
+  const c=state.consent;
+  html+=`<p class="meta">Consent: ${escapeHtml(c.choice)} · logged by ${escapeHtml(c.initials)} at ${new Date(c.time).toLocaleString("en-CA")}<br>AI-drafted from ${state.mode==="notes"?"caseworker notes":"interview transcript"}. Must be reviewed by the caseworker.</p>`;
+  doc.innerHTML=html;
+  doc.querySelectorAll("textarea").forEach(autoSize);
+  doc.addEventListener("input",e=>{ if(e.target.tagName==="TEXTAREA") autoSize(e.target); });
+  document.getElementById("approvedBox").innerHTML="";
+  document.getElementById("draftActions").hidden=false;
+}
+function autoSize(t){ t.style.height="auto"; t.style.height=t.scrollHeight+4+"px"; }
+document.getElementById("backBtn").onclick=()=>show("interview");
+
+/* ---------- Approval ---------- */
+document.getElementById("approveBtn").onclick=()=>{
+  if(!confirm("Approve this assessment? Make sure you’ve checked every section against what the client said.")) return;
+  state.approval={by:state.consent.initials, time:new Date().toISOString()};
+  // Data minimisation: discard the raw transcript/notes once the assessment is approved
+  state.finalText=""; state.interim=""; document.getElementById("notes").value=""; transcriptEl.textContent="";
+  document.querySelectorAll("#doc textarea").forEach(t=>t.readOnly=true);
+  document.getElementById("draftActions").hidden=true;
+  document.getElementById("approvedBox").innerHTML=`
+    <div class="approved">Approved by ${escapeHtml(state.approval.by)} at ${new Date(state.approval.time).toLocaleString("en-CA")}. The raw transcript has been deleted from this session.</div>
+    <div class="row no-print">
+      <button class="btn primary" id="dlBtn">Download assessment</button>
+      <button class="btn" onclick="window.print()">Print</button>
+      <button class="btn" id="newBtn">Start a new interview</button>
+    </div>`;
+  document.getElementById("dlBtn").onclick=download;
+  document.getElementById("newBtn").onclick=()=>location.reload();
+};
+function download(){
+  let out=`HOUSING INTAKE ASSESSMENT\n\n`;
+  document.querySelectorAll("#doc textarea").forEach(t=>{
+    const s=SECTIONS.find(x=>x.id===t.dataset.id);
+    out+=`${s.title}\n${t.value.trim()}\n\n`;
+  });
+  const c=state.consent, a=state.approval;
+  out+=`---\nConsent: ${c.choice} (logged by ${c.initials}, ${c.time})\nApproved by ${a.by}, ${a.time}\nAI-drafted, reviewed and approved by caseworker.\n`;
+  const blob=new Blob([out],{type:"text/plain"}), url=URL.createObjectURL(blob);
+  const link=document.createElement("a"); link.href=url; link.download="intake-assessment.txt"; link.click();
+  URL.revokeObjectURL(url);
+}
+show("consent");
+</script>
+</body>
+</html>
